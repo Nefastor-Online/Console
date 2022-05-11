@@ -22,6 +22,15 @@ typedef struct s_console_state
 
 extern t_console_state console_state;
 
+// Pseudo file system command block structure
+/*
+typedef struct s_command_block_entry
+{
+	unsigned char label[80];	// Command and parameter list, or block title
+	void (*fp)();				// Pointer to the function for this command
+	block_entry *cb;			// Child block, if the entry is for a "sub block". If this entry
+} block_entry; // t_console_command_block;
+*/
 
 // Function pointer for the current state of the console :
 extern void (*console_fp)();
@@ -40,5 +49,8 @@ void console_get_byte (unsigned char *c);
 
 // Command functions
 // void cmd_empty (unsigned char *buff);	// This function is empty, it's a safeguard during debugging.
+
+// Demo command functions, test / debug only :
+void command_counter ();
 
 #endif /* INC_CONSOLE_H_ */

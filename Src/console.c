@@ -35,7 +35,7 @@ void console_state_init ()
 	console_state.command_fp = 0;	// No command in progress
 
 	// Initialize the path string :
-	sprintf ((char *) console_state.path, "/>");
+	sprintf ((char *) console_state.path, "\r\n/>");
 
 	// Transition to output state
 	console_fp = console_state_output;
@@ -75,8 +75,8 @@ void console_state_output ()
 // PROBLEM : I have no way to reset its state. It should transition to a safe function (idle)
 void console_state_input ()
 {
-	// Currently, input data is processed by UART callback. But I may need to arm the mechanism first.
-	console_get_byte (&console_state.c);
+	// Currently, input data is processed by UART callback...
+	console_get_byte (&console_state.c);	// ... But I need to arm the mechanism first.
 	console_fp = console_state_idle;
 }
 
@@ -87,17 +87,24 @@ void console_state_idle ()
 
 void console_state_parser ()
 {
-	static int state = 0;
 
-	// This state machine is for debug only, all it does is return what's been entered by the user
-#if 0
+#if 0	// This state machine is for debug only, all it does is return what's been entered by the user
+	static int state = 0;
+	int len;
+
 	switch (state)
 	{
 		case 0:
-			console_out(console_state.input, strlen((char *)console_state.input));
+			len = strlen((char *)console_state.input);
+			if (len > 0)	// Don't echo empty string, this is somehow problematic.
+				console_out(console_state.input, len);
 			state = 1;
 			break;
 		case 1:
+			if (console_state.busy == 0)
+				state = 2;		// transition after output complete
+			break;
+		case 2:
 			// Go back to the output state to start all over again
 			console_fp = console_state_output;
 			state = 0;		// reset this state machine
@@ -105,11 +112,18 @@ void console_state_parser ()
 	}
 #endif
 
-	// The real parser
-	switch (state)
-	{
+	// The real parser isn't a state machine, it does its job and transitions right away
 
+	// Simple parsing test :
+	if (strncmp((char *) console_state.input, "count", 5) == 0)
+	{
+		// launch the demo counter function
+		console_fp = command_counter;
+		console_state.command_fp = console_fp;	// Necessary for now, try to optimize-out in the future
+		// return;
 	}
+	else
+		console_fp = console_state_output;	// ignore any other command line and return to prompt
 }
 
 // Empty function (debug only)
@@ -119,6 +133,7 @@ void console_state_parser ()
 // Should be called from the UART's "Rx Complete" callback or ISR
 // Definitive version : uses the library's own buffer
 // PROBLEM with the echo being too slow (but only cosmetic : input works fine). Look into it later.
+// Actually this whole process may need some hardening, but it'll work for now.
 void console_in (unsigned char c)
 {
 	// Only process bytes if the console is in the "idle" state (which follows the start of the input process)
@@ -129,8 +144,9 @@ void console_in (unsigned char c)
 		// (this is only while debugging)
 		if (c == 13)
 		{
-			console_state.input[console_state.index++] = 13;		// Add CR
-			console_state.input[console_state.index++] = 10;		// Add LF
+			// In the definitive code I can strip the CR+LF
+			// console_state.input[console_state.index++] = 13;		// Add CR
+			// console_state.input[console_state.index++] = 10;		// Add LF
 			console_state.input[console_state.index++] = 0;		// Add null termination
 			// console_out (buffer, buffer_index);	// was debug : send out full buffer
 			console_state.index = 0;	// reset index for next time
@@ -169,3 +185,33 @@ __attribute__((weak)) void console_get_byte (unsigned char *c)
 	// This function must transmit strlen(c) bytes starting from c.
 }
 
+// Demo command functions, test / debug only :
+void command_counter ()
+{
+	static int cnt = 0;
+	static int state = 0;
+
+	switch (state)
+	{
+		case 0:		// wait for previous DMA transfer to complete, and then transition
+			if (console_state.busy == 0)
+				state = 1;
+			break;
+		case 1:		// send out the counter's value as a string and increment
+			// Print straight to the output buffer
+			sprintf ((char *) console_state.output, "\r\nValue : %i", cnt++);
+			console_fp = console_state_output;	// transition to output state
+			state = 2;	// transition to local state 2.
+			break;
+		case 2:		// end test
+			state = 0;		// loop back to keep counting or reset the state machine
+			if (cnt == 1000)
+			{
+				cnt = 0;							// clear the counter
+				console_fp = console_state_output;	// transition to output state...
+				console_state.command_fp = 0;		// ... but this command ends, so we'll be returning to the prompt
+			}
+			break;
+	}
+
+}

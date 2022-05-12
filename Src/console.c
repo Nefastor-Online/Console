@@ -14,25 +14,43 @@
 // IMPORTANT : this variable needs to go into its own linker section so it can be placed where DMA can reach it
 t_console_state console_state;
 
+// Type cast macros to simplify coding PFS blocks
+#define BLOCK_LEN (void (*)())	// macro to simplify using a function pointer to hold a number
+#define CMD_BLOCK (t_console_block_entry*)
+
+
 // The console command block is the part of the PFS that contains the commands native to the console
 t_console_block_entry console_block[] =
 {
-		// { "Console Block", 0, 0 },		// Title shouldn't be necessary, removing it to save space.
-		{ "cd..", 0, 0},		// navigate towards the root
-		{ "ls", 0, 0}			// list commands in the current block
+		{ "", BLOCK_LEN 2, 0 },			// Title shouldn't be necessary, removing it to save space.
+		{ "cd..", command_native_cddoubledot, 0},		// navigate towards the root
+		{ "ls", command_native_list, 0}			// list commands in the current block
 };
 
 // Demo root command block, should be declared by the application.
 // I need to come up with an initialization mechanism to get the pointer to the console_state structure.
+// TEST ONLY : sub-blocks for navigation testing
+t_console_block_entry level_2_block[] =
+{
+		{"Level 2", BLOCK_LEN 2, 0},	// Title block. Parent block is level 1 block
+		{"count - this is a demo function", command_count, 0},		// Demo function
+		{"count - this is a demo function", command_count, 0}		// Demo function
+};
 
-#define BLOCK_LEN (void (*)())	// macro to simplify using a function pointer to hold a number
+t_console_block_entry level_1_block[] =
+{
+		{"Level 1", BLOCK_LEN 3, 0},	// Title block. Parent block is root.
+		{"count - this is a demo function", command_count, 0},		// Demo function
+		{"count - this is a demo function", command_count, 0},		// Demo function
+		{"lvl2 - sub-block 2", 0, CMD_BLOCK level_2_block}
+};
 
 t_console_block_entry root_block[] =
 {
-		{"STM32", BLOCK_LEN 1, 0},	// Title block. Root, so no parent block. No function. Function pointer replaced by command count in the block
-		{"count", command_count, 0}		// Demo function
+		{"STM32", BLOCK_LEN 2, 0},	// Title block. Root, so no parent block. No function. Function pointer replaced by command count in the block
+		{"count - this is a demo function", command_count, 0},		// Demo function
+		{"lvl1 - sub-block 1", 0, CMD_BLOCK level_1_block}
 };
-
 
 // Function pointer for the current state of the console :
 void (*console_fp)() = console_state_init;
@@ -40,6 +58,12 @@ void (*console_fp)() = console_state_init;
 // Main state machine state functions
 void console_state_init ()
 {
+	// Small design issue : I can't initialize the sub-blocks' parent block pointers directly, due to the order of block declarations.
+	// I'll need to do it from an init function :
+	// Setup PFS navigation links
+	level_1_block[0].cb = root_block;
+	level_2_block[0].cb = level_1_block;
+
 	// Empty the buffers by making them zero-length null-terminated strings :
 	console_state.input[0] = 0;
 	console_state.output[0] = 0;
@@ -48,8 +72,8 @@ void console_state_init ()
 
 	console_state.command_fp = 0;	// No command in progress
 
-	// Setup the PFS console block (native console commands like "cd..")
-	console_state.console =	console_block;
+
+	console_state.console =	console_block;	// Setup the PFS console block (native console commands like "cd..")
 	console_state.system = 0;		// No system block for now (application-defined, find a mechanism)
 	console_state.root = root_block;
 	console_state.block = console_state.root;	// Console starts at the root.
@@ -147,30 +171,71 @@ void console_state_parser ()
 #endif
 
 	// Getting here means console_state.command_fp must be zero, but for now let's just make sure
-	console_state.command_fp = 0;
+	console_state.command_fp = 0;	// No command is currently executing (or we wouldn't be here)
 
 	// Look for the command within the current block :
-	// int len = sizeof(*console_state.block);	// DOUBT : will that give me the correct value at run-time, when the pointer changes to a different block ?
 	int len = (int) console_state.block[0].fp;	// function pointer on a block's title entry holds number of commands in the block
-	// Note : a block with no command is not allowed
-	int k;
-	for (k = 1; k <= len; k++)	// skip the title entry
+	// Note : a block with no command (len == 0) is not supported
+	for (int k = 1; k <= len; k++)	// skip the title entry
 	{
+		// Determine the index of the first space in the command label
+		int j = 0;
+		while (console_state.block[k].label[j] != 32) j++; // Note : the index of the first space is also the length of the first word.
+
 		// Compare the command line's start to the command label in the block entry
-		if (strncmp((char *) console_state.input, (char *) console_state.block[k].label, strlen((char *) console_state.block[k].label)) == 0)
+		// if (strncmp((char *) console_state.input, (char *) console_state.block[k].label, strlen((char *) console_state.block[k].label)) == 0)
+		if (strncmp((char *) console_state.input, (char *) console_state.block[k].label, j) == 0)
 		{
-			// Found a math, launch the command, break out
-			console_fp = console_state.block[k].fp;
-			console_state.command_fp = console_fp;	// Necessary for now, try to optimize-out in the future
-			break;
+			// Found a match ! Determine if it's a command or a sub-block
+			if (console_state.block[k].fp != 0)	// then it's a command !
+			{
+				console_fp = console_state.block[k].fp;
+				console_state.command_fp = console_fp;	// Necessary for now, try to optimize-out in the future
+			}
+			if (console_state.block[k].cb != 0) // then it's a child block (cb) !
+			{
+				// Edit the path string
+				char *temp = (char *) console_state.path;	// Start of the path string
+				temp += strlen ((char *) console_state.path);	// Go to one byte after the end of the path string
+				temp--;		// step back to the last character (the ">" at the end of the prompt) to overwrite it
+				sprintf (temp, "/%s>", console_state.block[k].cb[0].label);	// Append a slash, the child block's label, and a fresh ">"
+				console_state.block = console_state.block[k].cb;  // update the current block to the child block
+				console_fp = console_state_output;	// transition back to prompt
+			}
+			return;	// job done
+		}
+	}
+
+	// Getting here means the user's command wasn't found in the current block.
+	// Let's check the console block (native console commands)
+	// This one is easier because it's flat (no sub-blocks)
+	len = (int) console_state.console[0].fp;	// function pointer on a block's title entry holds number of commands in the block
+	// Note : a block with no command (len == 0) is not supported
+	for (int k = 1; k <= len; k++)	// skip the title entry
+	{
+		// Determine the index of the first space in the command label
+		int j = 0;
+		while (console_state.console[k].label[j] != 32) j++; // Note : the index of the first space is also the length of the first word.
+
+		// Compare the command line's start to the command label in the block entry
+		// if (strncmp((char *) console_state.input, (char *) console_state.block[k].label, strlen((char *) console_state.block[k].label)) == 0)
+		if (strncmp((char *) console_state.input, (char *) console_state.console[k].label, j) == 0)
+		{
+			// Found a match ! It's a command, as there are no sub-blocks here
+			if (console_state.console[k].fp != 0)	// then it's a command !
+			{
+				console_fp = console_state.console[k].fp;
+				console_state.command_fp = console_fp;	// Necessary for now, try to optimize-out in the future
+			}
+			return;	// job done
 		}
 	}
 
 	// The parser will test multiple blocks, but should stop as soon as it finds a match.
 	// To do that, test console_state.command_fp for a non-zero value, denoting that a match has been found,
 	// and return early :
-	if (console_state.command_fp != 0)
-		return;
+	//if (console_state.command_fp != 0)	// PROBLEM : DOES NOT DETECT A SIMPLE CHANGE OF PATH
+	//	return;
 
 	// At the end of the parser, if no match has been found, go back to the prompt :
 	console_fp = console_state_output;
@@ -276,9 +341,66 @@ void command_count ()
 
 // Console commands ============================================================================
 
-// Navigate to the current block's parent block.
-void command_cddoubledot ()
+// Navigate to the current block's parent block ("cd..")
+void command_native_cddoubledot ()
 {
+	// If the current block is the root block, do nothing ! Otherwise, perform "cd.."
+	// if (console_state.block != console_state.root)
+	if (console_state.block[0].cb != 0)	// Another way to check it. Root block will not have a pointer to a child block.
+	{
+		// Truncate the path string
+		int i = strlen ((char *) console_state.path);
+		while (i--)	// move back towards the start of the path string
+			if (console_state.path[i] == '/')	// find the last slash...
+			{
+				console_state.path[i++] = '>';	// ... and terminate the string there
+				console_state.path[i] = 0;
+				break;
+			}
+		// Update the current block pointer
+		console_state.block = console_state.block[0].cb;	// "cb" of title entry is parent block pointer
+	}
+
+	// In all cases, transition to the prompt
+	console_state.command_fp = 0;
+	console_fp = console_state_output;
+}
+
+// List the contents of the current block ("ls")
+void command_native_list ()
+{
+	static int state = 0;
+	static int idx = 0;
+
+	switch (state)
+	{
+		case 0:		// wait for communication interface to be ready
+			if (console_state.busy == 0) state = 1;
+			break;
+		case 1:		// print the title of the current block
+			// Print straight to the output buffer
+			sprintf ((char *) console_state.output, "\r\n == %s ==", (char *) console_state.block[idx++].label);
+			console_fp = console_state_output;	// transition to output state
+			state = 2;	// transition to local state 2.
+			break;
+		case 2:		// wait for communication interface to be ready
+			if (console_state.busy == 0) state = 3;
+			break;
+		case 3:		// print a block entry
+			sprintf ((char *) console_state.output, "\r\n * %s", (char *) console_state.block[idx++].label);
+			console_fp = console_state_output;	// transition to output state
+			// The local state transition depends on the value of idx
+			if (idx > (int) console_state.block[0].fp)	// check against number of commands in the block
+				state = 4;	// End of block reached, command will complete on next call
+			else
+				state = 2;	// Loop to wait for DMA completion and transfer next entry
+			break;
+		case 4:	// end of command
+			console_state.command_fp = 0;
+			console_fp = console_state_output;	// back to the prompt
+			state = idx = 0;		// reset this command's state before leaving
+			break;
+	}
 
 }
 

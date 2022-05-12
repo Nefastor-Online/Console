@@ -17,7 +17,7 @@ struct t_console_block_entry
 {
 	unsigned char label[80];	// Command and parameter list, or block title
 	void (*fp)();				// Pointer to the function for this command
-	t_console_block_entry **cb;			// Child block, if the entry is for a "sub block". If this entry is a block title, this points to the parent block, if any
+	t_console_block_entry *cb;			// Child block, if the entry is for a "sub block". If this entry is a block title, this points to the parent block, if any
 };
 
 // Main data structure, with one global instance
@@ -64,7 +64,7 @@ void console_get_byte (unsigned char *c);
 void command_count ();
 
 // Commands that are part of the console block (console native commmands)
-void command_cddoubledot ();	// "cd.."
-
+void command_native_cddoubledot ();	// "cd.."
+void command_native_list ();		// "ls"
 
 #endif /* INC_CONSOLE_H_ */

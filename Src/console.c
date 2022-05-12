@@ -11,14 +11,28 @@
 #include <stdio.h>
 
 // Global instance of the console state structure
-// Important : this variable needs to go into its own linker section so it can be placed where DMA can reach it
+// IMPORTANT : this variable needs to go into its own linker section so it can be placed where DMA can reach it
 t_console_state console_state;
 
-// Ingress buffer : a circular FIFO isn't necessary, commands should be short enough. Robustify later.
-// Note : in order to support DMA on some MCU I may need to be able to relocate this buffer at an arbitrary address
-// This should be done through linker voodoo
-unsigned char buffer[256];
-int buffer_index = 0;
+// The console command block is the part of the PFS that contains the commands native to the console
+t_console_block_entry console_block[] =
+{
+		// { "Console Block", 0, 0 },		// Title shouldn't be necessary, removing it to save space.
+		{ "cd..", 0, 0},		// navigate towards the root
+		{ "ls", 0, 0}			// list commands in the current block
+};
+
+// Demo root command block, should be declared by the application.
+// I need to come up with an initialization mechanism to get the pointer to the console_state structure.
+
+#define BLOCK_LEN (void (*)())	// macro to simplify using a function pointer to hold a number
+
+t_console_block_entry root_block[] =
+{
+		{"STM32", BLOCK_LEN 1, 0},	// Title block. Root, so no parent block. No function. Function pointer replaced by command count in the block
+		{"count", command_count, 0}		// Demo function
+};
+
 
 // Function pointer for the current state of the console :
 void (*console_fp)() = console_state_init;
@@ -34,8 +48,14 @@ void console_state_init ()
 
 	console_state.command_fp = 0;	// No command in progress
 
+	// Setup the PFS console block (native console commands like "cd..")
+	console_state.console =	console_block;
+	console_state.system = 0;		// No system block for now (application-defined, find a mechanism)
+	console_state.root = root_block;
+	console_state.block = console_state.root;	// Console starts at the root.
+
 	// Initialize the path string :
-	sprintf ((char *) console_state.path, "\r\n/>");
+	sprintf ((char *) console_state.path, "\r\n/%s>", root_block[0].label);
 
 	// Transition to output state
 	console_fp = console_state_output;
@@ -113,17 +133,47 @@ void console_state_parser ()
 #endif
 
 	// The real parser isn't a state machine, it does its job and transitions right away
-
-	// Simple parsing test :
+#if 0
+	// Simple parsing test : in the future, replace with loops through blocks
 	if (strncmp((char *) console_state.input, "count", 5) == 0)
 	{
 		// launch the demo counter function
-		console_fp = command_counter;
+		console_fp = command_count;
 		console_state.command_fp = console_fp;	// Necessary for now, try to optimize-out in the future
 		// return;
 	}
 	else
 		console_fp = console_state_output;	// ignore any other command line and return to prompt
+#endif
+
+	// Getting here means console_state.command_fp must be zero, but for now let's just make sure
+	console_state.command_fp = 0;
+
+	// Look for the command within the current block :
+	// int len = sizeof(*console_state.block);	// DOUBT : will that give me the correct value at run-time, when the pointer changes to a different block ?
+	int len = (int) console_state.block[0].fp;	// function pointer on a block's title entry holds number of commands in the block
+	// Note : a block with no command is not allowed
+	int k;
+	for (k = 1; k <= len; k++)	// skip the title entry
+	{
+		// Compare the command line's start to the command label in the block entry
+		if (strncmp((char *) console_state.input, (char *) console_state.block[k].label, strlen((char *) console_state.block[k].label)) == 0)
+		{
+			// Found a math, launch the command, break out
+			console_fp = console_state.block[k].fp;
+			console_state.command_fp = console_fp;	// Necessary for now, try to optimize-out in the future
+			break;
+		}
+	}
+
+	// The parser will test multiple blocks, but should stop as soon as it finds a match.
+	// To do that, test console_state.command_fp for a non-zero value, denoting that a match has been found,
+	// and return early :
+	if (console_state.command_fp != 0)
+		return;
+
+	// At the end of the parser, if no match has been found, go back to the prompt :
+	console_fp = console_state_output;
 }
 
 // Empty function (debug only)
@@ -186,10 +236,12 @@ __attribute__((weak)) void console_get_byte (unsigned char *c)
 }
 
 // Demo command functions, test / debug only :
-void command_counter ()
+void command_count ()
 {
 	static int cnt = 0;
 	static int state = 0;
+	static volatile long long accu = 0;
+	int k;
 
 	switch (state)
 	{
@@ -199,7 +251,7 @@ void command_counter ()
 			break;
 		case 1:		// send out the counter's value as a string and increment
 			// Print straight to the output buffer
-			sprintf ((char *) console_state.output, "\r\nValue : %i", cnt++);
+			sprintf ((char *) console_state.output, "\r\nValues : %i %li", cnt++, (long) (accu / 10000));
 			console_fp = console_state_output;	// transition to output state
 			state = 2;	// transition to local state 2.
 			break;
@@ -211,7 +263,22 @@ void command_counter ()
 				console_fp = console_state_output;	// transition to output state...
 				console_state.command_fp = 0;		// ... but this command ends, so we'll be returning to the prompt
 			}
+			else
+			{
+				// Do some time-wasting processing (load check)
+				for (k = 0; k < 10000; k++)
+					accu += k * cnt;
+			}
 			break;
 	}
 
 }
+
+// Console commands ============================================================================
+
+// Navigate to the current block's parent block.
+void command_cddoubledot ()
+{
+
+}
+

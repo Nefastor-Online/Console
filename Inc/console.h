@@ -8,6 +8,18 @@
 #ifndef INC_CONSOLE_H_
 #define INC_CONSOLE_H_
 
+
+
+
+// Pseudo file system command block structure
+typedef struct t_console_block_entry t_console_block_entry;
+struct t_console_block_entry
+{
+	unsigned char label[80];	// Command and parameter list, or block title
+	void (*fp)();				// Pointer to the function for this command
+	t_console_block_entry **cb;			// Child block, if the entry is for a "sub block". If this entry is a block title, this points to the parent block, if any
+};
+
 // Main data structure, with one global instance
 typedef struct s_console_state
 {
@@ -17,20 +29,18 @@ typedef struct s_console_state
 	int busy;					// If non-zero, DMA transfer in progress
 	int index;					// Input buffer index, used when receiving data from the console
 	void (*command_fp)();		// Pointer to the function for the command in progress, or zero if no command in progress
+
+	// PFS :
+	t_console_block_entry *root;	// Root block for the application-specific command blocks tree
+	t_console_block_entry *block;	// Current block (commands located at "path")
+	t_console_block_entry *console;	// Console block;
+	t_console_block_entry *system;		// System block;
+
 	unsigned char c;			// Single-byte buffer
+
 } t_console_state;
 
 extern t_console_state console_state;
-
-// Pseudo file system command block structure
-/*
-typedef struct s_command_block_entry
-{
-	unsigned char label[80];	// Command and parameter list, or block title
-	void (*fp)();				// Pointer to the function for this command
-	block_entry *cb;			// Child block, if the entry is for a "sub block". If this entry
-} block_entry; // t_console_command_block;
-*/
 
 // Function pointer for the current state of the console :
 extern void (*console_fp)();
@@ -51,6 +61,10 @@ void console_get_byte (unsigned char *c);
 // void cmd_empty (unsigned char *buff);	// This function is empty, it's a safeguard during debugging.
 
 // Demo command functions, test / debug only :
-void command_counter ();
+void command_count ();
+
+// Commands that are part of the console block (console native commmands)
+void command_cddoubledot ();	// "cd.."
+
 
 #endif /* INC_CONSOLE_H_ */

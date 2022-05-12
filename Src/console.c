@@ -127,6 +127,10 @@ void console_state_input ()
 void console_state_idle ()
 {
 	// Do nothing. Used when waiting for the state machine state to be transitioned from an interrupt handler or callback
+	// DANGER : the console will get stuck in that state if a key is pressed outside of the input state !
+
+	// Quick test : maybe I can rearm the read without danger :
+	console_get_byte (&console_state.c); // THIS SOLVED THE BUG !!! But how clean is it ? Is it expensive ?
 }
 
 void console_state_parser ()
@@ -271,6 +275,8 @@ void console_in (unsigned char c)
 		else
 		{
 			console_get_byte (&console_state.c);	// start receiving the next byte (it's not over until I get a CR)
+
+			// while (console_state.busy != 0);	// Don't echo unless the interface is ready (this may be unnecessary here)
 			console_out (&c, 1);	// echo this new byte. PROBLEM : too slow, on copy-paste to console, not every character is echoed (but all are received successfully nonetheless)
 
 			if (c != 127)				// not sure why, but PuTTY sends 127 for backspace

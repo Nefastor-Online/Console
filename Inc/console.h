@@ -52,10 +52,11 @@ void console_state_input ();		// Acquire user input
 void console_state_idle ();
 void console_state_parser ();		// Parse user input
 
-// Communication functions
+// Portability layer (Console communication interface. Weak functions to be overridden by target-specific implementations)
 void console_in (unsigned char c);		// Feed incoming bytes to this function
 void console_out (unsigned char *buff, int length);		// Send buffer out the UART
-void console_get_byte (unsigned char *c);
+void console_get_byte (unsigned char *c);		// Called by the console to read a byte from the UART
+void console_state_error ();			// The console transitions to this state in case of unrecoverable error.
 
 // Command functions
 // void cmd_empty (unsigned char *buff);	// This function is empty, it's a safeguard during debugging.

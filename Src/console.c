@@ -27,6 +27,13 @@ t_console_block_entry console_block[] =
 		{ "ls", command_native_list, 0}			// list commands in the current block
 };
 
+// Demo system block, should be declared by the application.
+t_console_block_entry system_block[] =
+{
+		{ "", BLOCK_LEN 1, 0 },			// Title shouldn't be necessary, removing it to save space.
+		{"count - this is a demo function", command_count, 0}		// Demo function
+};
+
 // Demo root command block, should be declared by the application.
 // I need to come up with an initialization mechanism to get the pointer to the console_state structure.
 // TEST ONLY : sub-blocks for navigation testing
@@ -72,16 +79,15 @@ void console_state_init ()
 
 	console_state.command_fp = 0;	// No command in progress
 
-
 	console_state.console =	console_block;	// Setup the PFS console block (native console commands like "cd..")
-	console_state.system = 0;		// No system block for now (application-defined, find a mechanism)
+	console_state.system = system_block;		// System block for now (application-defined, find a mechanism)
 	console_state.root = root_block;
 	console_state.block = console_state.root;	// Console starts at the root.
 
 	// Initialize the path string :
 	sprintf ((char *) console_state.path, "\r\n/%s>", root_block[0].label);
 
-	// Transition to output state
+	// Transition to output state immediately after initialization :
 	console_fp = console_state_output;
 }
 
@@ -177,10 +183,10 @@ void console_state_parser ()
 	// Getting here means console_state.command_fp must be zero, but for now let's just make sure
 	console_state.command_fp = 0;	// No command is currently executing (or we wouldn't be here)
 
-	// Look for the command within the current block :
-	int len = (int) console_state.block[0].fp;	// function pointer on a block's title entry holds number of commands in the block
+	// Look for a matching command within the current block :
+	int len = (int) console_state.block[0].fp;	// The function pointer in a block's title entry holds number of commands in the block
 	// Note : a block with no command (len == 0) is not supported
-	for (int k = 1; k <= len; k++)	// skip the title entry
+	for (int k = 1; k <= len; k++)	// Loop through the block. Skip the title entry
 	{
 		// Determine the index of the first space in the command label
 		int j = 0;
@@ -195,6 +201,7 @@ void console_state_parser ()
 			{
 				console_fp = console_state.block[k].fp;
 				console_state.command_fp = console_fp;	// Necessary for now, try to optimize-out in the future
+				return;
 			}
 			if (console_state.block[k].cb != 0) // then it's a child block (cb) !
 			{
@@ -205,14 +212,44 @@ void console_state_parser ()
 				sprintf (temp, "/%s>", console_state.block[k].cb[0].label);	// Append a slash, the child block's label, and a fresh ">"
 				console_state.block = console_state.block[k].cb;  // update the current block to the child block
 				console_fp = console_state_output;	// transition back to prompt
+				return;
+			}
+
+			// Getting here means that the matching block contains two null pointers, which is illegal : transition to the error state
+			console_fp = console_state_error;
+			return;
+		}
+	}
+
+	// Getting here means the user's command wasn't found in the current block.
+	// Let's check the system block (application commands available from any path)
+	// This one is easier because it's flat (no sub-blocks)
+	len = (int) console_state.system[0].fp;	// function pointer on a block's title entry holds number of commands in the block
+	// Note : a block with no command (len == 0) is not supported
+	for (int k = 1; k <= len; k++)	// skip the title entry
+	{
+		// Determine the index of the first space in the command label
+		int j = 0;
+		while (console_state.system[k].label[j] != 32) j++; // Note : the index of the first space is also the length of the first word.
+
+		// Compare the command line's start to the command label in the block entry
+		// if (strncmp((char *) console_state.input, (char *) console_state.block[k].label, strlen((char *) console_state.block[k].label)) == 0)
+		if (strncmp((char *) console_state.input, (char *) console_state.system[k].label, j) == 0)
+		{
+			// Found a match ! It's a command, as there are no sub-blocks here
+			if (console_state.system[k].fp != 0)	// then it's a command !
+			{
+				console_fp = console_state.system[k].fp;
+				console_state.command_fp = console_fp;	// Necessary for now, try to optimize-out in the future
 			}
 			return;	// job done
 		}
 	}
 
-	// Getting here means the user's command wasn't found in the current block.
+	// Getting here means the user's command wasn't found in the current or the system block.
 	// Let's check the console block (native console commands)
 	// This one is easier because it's flat (no sub-blocks)
+	// Because the console block is not meant to be tailored to the application, safety checks are removed.
 	len = (int) console_state.console[0].fp;	// function pointer on a block's title entry holds number of commands in the block
 	// Note : a block with no command (len == 0) is not supported
 	for (int k = 1; k <= len; k++)	// skip the title entry
@@ -226,11 +263,11 @@ void console_state_parser ()
 		if (strncmp((char *) console_state.input, (char *) console_state.console[k].label, j) == 0)
 		{
 			// Found a match ! It's a command, as there are no sub-blocks here
-			if (console_state.console[k].fp != 0)	// then it's a command !
-			{
+//			if (console_state.console[k].fp != 0)	// then it's a command !
+//			{
 				console_fp = console_state.console[k].fp;
 				console_state.command_fp = console_fp;	// Necessary for now, try to optimize-out in the future
-			}
+//			}
 			return;	// job done
 		}
 	}
@@ -306,6 +343,14 @@ __attribute__((weak)) void console_get_byte (unsigned char *c)
 	// This function must transmit strlen(c) bytes starting from c.
 }
 
+// This function is an error state : if the console transitions to it, it means the library found
+// itself in an unrecoverable situation. Example : the PFS contains a command with two null pointers,
+// which is illegal. Override this function to implement application-specific handling of console errors
+__attribute__((weak)) void console_state_error ()
+{
+
+}
+
 // Demo command functions, test / debug only :
 void command_count ()
 {
@@ -377,6 +422,7 @@ void command_native_list ()
 {
 	static int state = 0;
 	static int idx = 0;
+	char tag;		// Command entries get a "C" on their line, sub-blocks have a ">"
 
 	switch (state)
 	{
@@ -393,7 +439,8 @@ void command_native_list ()
 			if (console_state.busy == 0) state = 3;
 			break;
 		case 3:		// print a block entry
-			sprintf ((char *) console_state.output, "\r\n * %s", (char *) console_state.block[idx++].label);
+			tag = (console_state.block[idx].fp != 0) ? 'C' : '>';			// Start by determining the tag
+			sprintf ((char *) console_state.output, "\r\n %c %s", tag, (char *) console_state.block[idx++].label);
 			console_fp = console_state_output;	// transition to output state
 			// The local state transition depends on the value of idx
 			if (idx > (int) console_state.block[0].fp)	// check against number of commands in the block

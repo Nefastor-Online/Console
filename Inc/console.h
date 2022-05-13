@@ -15,7 +15,7 @@
 typedef struct t_console_block_entry t_console_block_entry;
 struct t_console_block_entry
 {
-	unsigned char label[80];	// Command and parameter list, or block title
+	char label[80];	// Command and parameter list, or block title
 	void (*fp)();				// Pointer to the function for this command
 	t_console_block_entry *cb;			// Child block, if the entry is for a "sub block". If this entry is a block title, this points to the parent block, if any
 };
@@ -23,9 +23,9 @@ struct t_console_block_entry
 // Main data structure, with one global instance
 typedef struct s_console_state
 {
-	unsigned char path[256];	// Current path and prompt.
-	unsigned char input[256];	// Input buffer (stores a complete line)
-	unsigned char output[256];	// Output buffer (used for DMA transfers)
+	char path[256];	// Current path and prompt.
+	char input[256];	// Input buffer (stores a complete line)
+	char output[256];	// Output buffer (used for DMA transfers)
 	int busy;					// If non-zero, DMA transfer in progress
 	int index;					// Input buffer index, used when receiving data from the console
 	void (*command_fp)();		// Pointer to the function for the command in progress, or zero if no command in progress
@@ -36,7 +36,7 @@ typedef struct s_console_state
 	t_console_block_entry *console;	// Console block;
 	t_console_block_entry *system;		// System block;
 
-	unsigned char c;			// Single-byte buffer
+	char c;			// Single-byte buffer
 
 } t_console_state;
 
@@ -53,9 +53,9 @@ void console_state_idle ();
 void console_state_parser ();		// Parse user input
 
 // Portability layer (Console communication interface. Weak functions to be overridden by target-specific implementations)
-void console_in (unsigned char c);		// Feed incoming bytes to this function
-void console_out (unsigned char *buff, int length);		// Send buffer out the UART
-void console_get_byte (unsigned char *c);		// Called by the console to read a byte from the UART
+void console_in (char c);		// Feed incoming bytes to this function
+void console_out (char *buff, int length);		// Send buffer out the UART
+void console_get_byte (char *c);		// Called by the console to read a byte from the UART
 void console_state_error ();			// The console transitions to this state in case of unrecoverable error.
 
 // Command functions

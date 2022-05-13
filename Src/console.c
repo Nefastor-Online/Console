@@ -85,7 +85,7 @@ void console_state_init ()
 	console_state.block = console_state.root;	// Console starts at the root.
 
 	// Initialize the path string :
-	sprintf ((char *) console_state.path, "\r\n/%s>", root_block[0].label);
+	sprintf (console_state.path, "\r\n/%s>", root_block[0].label);
 
 	// Transition to output state immediately after initialization :
 	console_fp = console_state_output;
@@ -105,9 +105,9 @@ void console_state_output ()
 			break;
 		case 1:		// Transfer the output buffer : if a command isn't in progress, send the path instead
 			if (console_state.command_fp != 0) // then we're here because a command wants to send some text to the console
-				console_out (console_state.output, strlen ((char *) console_state.output));
+				console_out (console_state.output, strlen (console_state.output));
 			else
-				console_out (console_state.path, strlen ((char *) console_state.path));
+				console_out (console_state.path, strlen (console_state.path));
 			state = 2;			// transition to next state
 			break;
 		case 2:		// Wait for transfer to complete
@@ -149,7 +149,7 @@ void console_state_parser ()
 	switch (state)
 	{
 		case 0:
-			len = strlen((char *)console_state.input);
+			len = strlen(console_state.input);
 			if (len > 0)	// Don't echo empty string, this is somehow problematic.
 				console_out(console_state.input, len);
 			state = 1;
@@ -169,7 +169,7 @@ void console_state_parser ()
 	// The real parser isn't a state machine, it does its job and transitions right away
 #if 0
 	// Simple parsing test : in the future, replace with loops through blocks
-	if (strncmp((char *) console_state.input, "count", 5) == 0)
+	if (strncmp(console_state.input, "count", 5) == 0)
 	{
 		// launch the demo counter function
 		console_fp = command_count;
@@ -193,8 +193,8 @@ void console_state_parser ()
 		while (console_state.block[k].label[j] != 32) j++; // Note : the index of the first space is also the length of the first word.
 
 		// Compare the command line's start to the command label in the block entry
-		// if (strncmp((char *) console_state.input, (char *) console_state.block[k].label, strlen((char *) console_state.block[k].label)) == 0)
-		if (strncmp((char *) console_state.input, (char *) console_state.block[k].label, j) == 0)
+		// if (strncmp(console_state.input, console_state.block[k].label, strlen(console_state.block[k].label)) == 0)
+		if (strncmp(console_state.input, console_state.block[k].label, j) == 0)
 		{
 			// Found a match ! Determine if it's a command or a sub-block
 			if (console_state.block[k].fp != 0)	// then it's a command !
@@ -206,8 +206,8 @@ void console_state_parser ()
 			if (console_state.block[k].cb != 0) // then it's a child block (cb) !
 			{
 				// Edit the path string
-				char *temp = (char *) console_state.path;	// Start of the path string
-				temp += strlen ((char *) console_state.path);	// Go to one byte after the end of the path string
+				char *temp = console_state.path;	// Start of the path string
+				temp += strlen (console_state.path);	// Go to one byte after the end of the path string
 				temp--;		// step back to the last character (the ">" at the end of the prompt) to overwrite it
 				sprintf (temp, "/%s>", console_state.block[k].cb[0].label);	// Append a slash, the child block's label, and a fresh ">"
 				console_state.block = console_state.block[k].cb;  // update the current block to the child block
@@ -233,8 +233,8 @@ void console_state_parser ()
 		while (console_state.system[k].label[j] != 32) j++; // Note : the index of the first space is also the length of the first word.
 
 		// Compare the command line's start to the command label in the block entry
-		// if (strncmp((char *) console_state.input, (char *) console_state.block[k].label, strlen((char *) console_state.block[k].label)) == 0)
-		if (strncmp((char *) console_state.input, (char *) console_state.system[k].label, j) == 0)
+		// if (strncmp(console_state.input, console_state.block[k].label, strlen(console_state.block[k].label)) == 0)
+		if (strncmp(console_state.input, console_state.system[k].label, j) == 0)
 		{
 			// Found a match ! It's a command, as there are no sub-blocks here
 			if (console_state.system[k].fp != 0)	// then it's a command !
@@ -259,8 +259,8 @@ void console_state_parser ()
 		while (console_state.console[k].label[j] != 32) j++; // Note : the index of the first space is also the length of the first word.
 
 		// Compare the command line's start to the command label in the block entry
-		// if (strncmp((char *) console_state.input, (char *) console_state.block[k].label, strlen((char *) console_state.block[k].label)) == 0)
-		if (strncmp((char *) console_state.input, (char *) console_state.console[k].label, j) == 0)
+		// if (strncmp(console_state.input, console_state.block[k].label, strlen(console_state.block[k].label)) == 0)
+		if (strncmp(console_state.input, console_state.console[k].label, j) == 0)
 		{
 			// Found a match ! It's a command, as there are no sub-blocks here
 //			if (console_state.console[k].fp != 0)	// then it's a command !
@@ -290,7 +290,7 @@ void console_state_parser ()
 // Definitive version : uses the library's own buffer
 // PROBLEM with the echo being too slow (but only cosmetic : input works fine). Look into it later.
 // Actually this whole process may need some hardening, but it'll work for now.
-void console_in (unsigned char c)
+void console_in (char c)
 {
 	// Only process bytes if the console is in the "idle" state (which follows the start of the input process)
 	if (console_fp == console_state_idle)
@@ -331,14 +331,14 @@ void console_in (unsigned char c)
 }
 
 // This function must be overridden by the application to match the target platform
-__attribute__((weak)) void console_out (unsigned char *buff, int length)
+__attribute__((weak)) void console_out (char *buff, int length)
 {
 	// This function must transmit strlen(c) bytes starting from c.
 }
 
 // This function must be overridden by the application to match the target platform
 // Its purpose is to read the next byte coming from the console and store it using the pointer argument
-__attribute__((weak)) void console_get_byte (unsigned char *c)
+__attribute__((weak)) void console_get_byte (char *c)
 {
 	// This function must transmit strlen(c) bytes starting from c.
 }
@@ -367,7 +367,7 @@ void command_count ()
 			break;
 		case 1:		// send out the counter's value as a string and increment
 			// Print straight to the output buffer
-			sprintf ((char *) console_state.output, "\r\nValues : %i %li", cnt++, (long) (accu / 10000));
+			sprintf (console_state.output, "\r\nValues : %i %li", cnt++, (long) (accu / 10000));
 			console_fp = console_state_output;	// transition to output state
 			state = 2;	// transition to local state 2.
 			break;
@@ -400,7 +400,7 @@ void command_native_cddoubledot ()
 	if (console_state.block[0].cb != 0)	// Another way to check it. Root block will not have a pointer to a child block.
 	{
 		// Truncate the path string
-		int i = strlen ((char *) console_state.path);
+		int i = strlen (console_state.path);
 		while (i--)	// move back towards the start of the path string
 			if (console_state.path[i] == '/')	// find the last slash...
 			{
@@ -431,7 +431,7 @@ void command_native_list ()
 			break;
 		case 1:		// print the title of the current block
 			// Print straight to the output buffer
-			sprintf ((char *) console_state.output, "\r\n == %s ==", (char *) console_state.block[idx++].label);
+			sprintf (console_state.output, "\r\n == %s ==", console_state.block[idx++].label);
 			console_fp = console_state_output;	// transition to output state
 			state = 2;	// transition to local state 2.
 			break;
@@ -440,7 +440,7 @@ void command_native_list ()
 			break;
 		case 3:		// print a block entry
 			tag = (console_state.block[idx].fp != 0) ? 'C' : '>';			// Start by determining the tag
-			sprintf ((char *) console_state.output, "\r\n %c %s", tag, (char *) console_state.block[idx++].label);
+			sprintf (console_state.output, "\r\n %c %s", tag, console_state.block[idx++].label);
 			console_fp = console_state_output;	// transition to output state
 			// The local state transition depends on the value of idx
 			if (idx > (int) console_state.block[0].fp)	// check against number of commands in the block

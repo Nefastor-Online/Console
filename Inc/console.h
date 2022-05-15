@@ -8,9 +8,6 @@
 #ifndef INC_CONSOLE_H_
 #define INC_CONSOLE_H_
 
-
-
-
 // Pseudo file system command block structure
 typedef struct t_console_block_entry t_console_block_entry;
 struct t_console_block_entry
@@ -19,6 +16,14 @@ struct t_console_block_entry
 	void (*fp)();				// Pointer to the function for this command
 	t_console_block_entry *cb;			// Child block, if the entry is for a "sub block". If this entry is a block title, this points to the parent block, if any
 };
+
+// Global instances of blocks declared in separate source files for clarity :
+extern t_console_block_entry console_block[];
+extern t_console_block_entry system_block[];	// The library provides an empty place-holder (see "console_pfs.c")
+
+// Type cast macros to simplify coding PFS blocks
+#define BLOCK_LEN (void (*)())	// macro to simplify using a function pointer to hold a number
+#define CMD_BLOCK (t_console_block_entry*)
 
 // Main data structure, with one global instance
 typedef struct s_console_state
@@ -36,8 +41,7 @@ typedef struct s_console_state
 	t_console_block_entry *console;	// Console block;
 	t_console_block_entry *system;		// System block;
 
-	char c;			// Single-byte buffer
-
+	char c;			// Single-byte input buffer
 } t_console_state;
 
 extern t_console_state console_state;
@@ -57,15 +61,5 @@ void console_in (char c);		// Feed incoming bytes to this function
 void console_out (char *buff, int length);		// Send buffer out the UART
 void console_get_byte (char *c);		// Called by the console to read a byte from the UART
 void console_state_error ();			// The console transitions to this state in case of unrecoverable error.
-
-// Command functions
-// void cmd_empty (unsigned char *buff);	// This function is empty, it's a safeguard during debugging.
-
-// Demo command functions, test / debug only :
-void command_count ();
-
-// Commands that are part of the console block (console native commmands)
-void command_native_cddoubledot ();	// "cd.."
-void command_native_list ();		// "ls"
 
 #endif /* INC_CONSOLE_H_ */

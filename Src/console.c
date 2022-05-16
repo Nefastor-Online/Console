@@ -2,7 +2,20 @@
  * console.c
  *
  *  Created on: May 10, 2022
- *      Author: Nefastor
+ *      Author: Jean Roch - Nefastor.com
+ *
+ *  Copyright 2022 Jean Roch
+ *
+ *  This file is part of The Console.
+ *
+ *  The Console is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
+ *  as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+ *
+ *  The Console is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+ *  of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License along with The Console.
+ *  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #include "console.h"
@@ -12,7 +25,10 @@
 
 // Global instance of the console state structure
 // IMPORTANT : this variable needs to go into its own linker section so it can be placed where DMA can reach it
-t_console_state console_state;
+// If necessary, modify your linker script to add the ".console" section and make sure it ends-up at an address that
+// is compatible with DMA transfers to the console's serial interface.
+// It is OK for your linker script to not have this section : the linker will then ignore the attribute.
+__attribute__ ((section (".console"))) t_console_state console_state;
 
 extern t_console_block_entry root_block[];		// Must be declared by the application
 
@@ -225,7 +241,7 @@ void console_in (char c)
 			}
 		}
 
-		if (console_state.index == 256)	// Buffer overflow protection
+		if (console_state.index == CONSOLE_BUFFER_SIZE)	// Buffer overflow protection
 			console_state.index--;
 	}
 }

@@ -2,17 +2,33 @@
  * console.h
  *
  *  Created on: May 10, 2022
- *      Author: Nefastor
+ *      Author: Jean Roch - Nefastor.com
+ *
+ *  Copyright 2022 Jean Roch
+ *
+ *  This file is part of The Console.
+ *
+ *  The Console is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
+ *  as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
+ *
+ *  The Console is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+ *  of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
+ *
+ *  You should have received a copy of the GNU General Public License along with The Console.
+ *  If not, see <https://www.gnu.org/licenses/>.
  */
 
 #ifndef INC_CONSOLE_H_
 #define INC_CONSOLE_H_
 
+#define CONSOLE_LABEL_LENGTH	80
+#define CONSOLE_BUFFER_SIZE		256
+
 // Pseudo file system command block structure
 typedef struct t_console_block_entry t_console_block_entry;
 struct t_console_block_entry
 {
-	char label[80];	// Command and parameter list, or block title
+	char label[CONSOLE_LABEL_LENGTH];	// Command and parameter list, or block title
 	void (*fp)();				// Pointer to the function for this command
 	t_console_block_entry *cb;			// Child block, if the entry is for a "sub block". If this entry is a block title, this points to the parent block, if any
 };
@@ -28,9 +44,9 @@ extern t_console_block_entry system_block[];	// The library provides an empty pl
 // Main data structure, with one global instance
 typedef struct s_console_state
 {
-	char path[256];	// Current path and prompt.
-	char input[256];	// Input buffer (stores a complete line)
-	char output[256];	// Output buffer (used for DMA transfers)
+	char path[CONSOLE_BUFFER_SIZE];	// Current path and prompt.
+	char input[CONSOLE_BUFFER_SIZE];	// Input buffer (stores a complete line)
+	char output[CONSOLE_BUFFER_SIZE];	// Output buffer (used for DMA transfers)
 	int busy;					// If non-zero, DMA transfer in progress
 	int index;					// Input buffer index, used when receiving data from the console
 	void (*command_fp)();		// Pointer to the function for the command in progress, or zero if no command in progress

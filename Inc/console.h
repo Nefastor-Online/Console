@@ -21,6 +21,8 @@
 #ifndef INC_CONSOLE_H_
 #define INC_CONSOLE_H_
 
+#include <string.h>
+
 #define CONSOLE_LABEL_LENGTH	80
 #define CONSOLE_BUFFER_SIZE		256
 
@@ -40,6 +42,10 @@ extern t_console_block_entry system_block[];	// The library provides an empty pl
 // Type cast macros to simplify coding PFS blocks
 #define BLOCK_LEN (void (*)())	// macro to simplify using a function pointer to hold a number
 #define CMD_BLOCK (t_console_block_entry*)
+
+// Macros to simplify coding command functions
+#define COMMAND_END	{console_state.command_fp = 0; console_fp = console_state_output;}	// nullifies current command pointer, transitions back to the prompt
+#define CONSOLE_PRINT(S) {console_out(S, strlen(S)); while (console_state.busy == 1);}	// prints a string to the console, blocks until transmission is complete
 
 // Main data structure, with one global instance
 typedef struct s_console_state

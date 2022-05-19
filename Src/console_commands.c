@@ -51,8 +51,7 @@ void command_native_cddoubledot ()
 	}
 
 	// In all cases, transition to the prompt
-	console_state.command_fp = 0;
-	console_fp = console_state_output;
+	COMMAND_END
 }
 
 // List the contents of the current block ("ls")
@@ -87,8 +86,7 @@ void command_native_list ()
 				state = 2;	// Loop to wait for DMA completion and transfer next entry
 			break;
 		case 4:	// end of command
-			console_state.command_fp = 0;
-			console_fp = console_state_output;	// back to the prompt
+			COMMAND_END
 			state = idx = 0;		// reset this command's state before leaving
 			break;
 	}

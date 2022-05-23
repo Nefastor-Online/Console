@@ -72,11 +72,11 @@ extern t_console_state console_state;
 extern void (*console_fp)();
 
 // Main state machine state functions
-void console_state_init ();			// Initial state of the console. Performs initializations.
+void console_state_init ();			// Initialization state.
 void console_state_output ();		// Output state, sends the prompt to the console.
-void console_state_input ();		// Acquire user input
-void console_state_idle ();
-void console_state_parser ();		// Parse user input
+void console_state_input ();		// Start acquiring user input.
+void console_state_idle ();			// Wait for user input to complete.
+void console_state_parser ();		// Parse user input.
 
 // Portability layer (Console communication interface. Weak functions to be overridden by target-specific implementations)
 void console_in (char c);		// Feed incoming bytes to this function

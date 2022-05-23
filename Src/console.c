@@ -35,13 +35,15 @@ extern t_console_block_entry root_block[];		// Must be declared by the applicati
 // Function pointer for the current state of the console :
 void (*console_fp)() = console_state_init;
 
-// Main state machine state functions
+// ======= Main state machine state functions =======
+
+// Initial state - Runs once; performs initialization
 void console_state_init ()
 {
 	// Empty the buffers by making them zero-length null-terminated strings :
 	console_state.input[0] = 0;
 	console_state.output[0] = 0;
-	console_state.busy = 0;			// No transfer in progress
+	console_state.busy = -1;			// 0 == No transfer in progress, 1 == Transfer in progress, -1 == interface not initialized
 	console_state.index = 0;
 
 	console_state.command_fp = 0;	// No command in progress
@@ -58,10 +60,9 @@ void console_state_init ()
 	console_fp = console_state_output;
 }
 
-// SHOULD BE COMPLETE
+// Displays the console prompt or a line of command output, then transitions to user input state or back to command in progress
 void console_state_output ()
 {
-	// TO DO : Send prompt to console, transition to input state
 	static int state = 0;		// This state has sub-states
 
 	switch (state)

@@ -43,7 +43,7 @@ void console_state_init ()
 	// Empty the buffers by making them zero-length null-terminated strings :
 	console_state.input[0] = 0;
 	console_state.output[0] = 0;
-	console_state.busy = -1;			// 0 == No transfer in progress, 1 == Transfer in progress, -1 == interface not initialized
+	console_state.busy = 0;			// 0 == No transfer in progress, 1 == Transfer in progress
 	console_state.index = 0;
 
 	console_state.command_fp = 0;	// No command in progress

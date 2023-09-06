@@ -1,10 +1,11 @@
-# Console
-Generic command line interface framework to provide console support to microcontrollers.
+# STM Shell
+*(Pronounced **Stem Shell**, of course)*
 
-This repository is provided in support of the Nefastor.com website.
+Generic command line interface framework to provide a **customizable shell** to **STM32** microcontrollers.
 
-If you found this code before finding the website, you should read the website
-to know what this is about and how to use it.
+This repository is provided in support of the **Nefastor.com** website.
+
+If you found this code before finding the website, you should read the website to know what this is about and how to use it.
 
 Documentation for this project will be available on Nefastor.com once I finish writing it.
 

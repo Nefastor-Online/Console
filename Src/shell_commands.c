@@ -1,27 +1,27 @@
 /*
- * console_commands.c
+ *  shell_commands.c
  *
- * The console command block is the part of the PFS that contains the commands native to the console
+ *  The shell command block is the part of the PFS that contains the commands native to the shell
  *
  *  Created on: May 13, 2022
  *      Author: Jean Roch - Nefastor.com
  *
  *  Copyright 2022 Jean Roch
  *
- *  This file is part of The Console.
+ *  This file is part of STM Shell.
  *
- *  The Console is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
+ *  STM Shell is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
  *  as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
  *
- *  The Console is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
+ *  STM Shell is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
  *  of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License for more details.
  *
- *  You should have received a copy of the GNU General Public License along with The Console.
+ *  You should have received a copy of the GNU General Public License along with STM Shell.
  *  If not, see <https://www.gnu.org/licenses/>.
  */
 
 
-#include "console.h"		// For the structure declarations and global variables
+#include "shell.h"		// For the structure declarations and global variables
 
 #include <string.h>
 #include <stdio.h>
@@ -34,20 +34,20 @@
 void command_native_cddoubledot ()
 {
 	// If the current block is the root block, do nothing ! Otherwise, perform "cd.."
-	// if (console_state.block != console_state.root)
-	if (console_state.block[0].cb != 0)	// Another way to check it. Root block will not have a pointer to a child block.
+	// if (shell_state.block != shell_state.root)
+	if (shell_state.block[0].cb != 0)	// Another way to check it. Root block will not have a pointer to a child block.
 	{
 		// Truncate the path string
-		int i = strlen (console_state.path);
+		int i = strlen (shell_state.path);
 		while (i--)	// move back towards the start of the path string
-			if (console_state.path[i] == '/')	// find the last slash...
+			if (shell_state.path[i] == '/')	// find the last slash...
 			{
-				console_state.path[i++] = '>';	// ... and terminate the string there
-				console_state.path[i] = 0;
+				shell_state.path[i++] = '>';	// ... and terminate the string there
+				shell_state.path[i] = 0;
 				break;
 			}
 		// Update the current block pointer
-		console_state.block = console_state.block[0].cb;	// "cb" of title entry is parent block pointer
+		shell_state.block = shell_state.block[0].cb;	// "cb" of title entry is parent block pointer
 	}
 
 	// In all cases, transition to the prompt
@@ -64,23 +64,23 @@ void command_native_list ()
 	switch (state)
 	{
 		case 0:		// wait for communication interface to be ready
-			if (console_state.busy == 0) state = 1;
+			if (shell_state.busy == 0) state = 1;
 			break;
 		case 1:		// print the title of the current block
 			// Print straight to the output buffer
-			sprintf (console_state.output, "\r\n == %s ==", console_state.block[idx++].label);
-			console_fp = console_state_output;	// transition to output state
+			sprintf (shell_state.output, "\r\n == %s ==", shell_state.block[idx++].label);
+			shell_fp = shell_state_output;	// transition to output state
 			state = 2;	// transition to local state 2.
 			break;
 		case 2:		// wait for communication interface to be ready
-			if (console_state.busy == 0) state = 3;
+			if (shell_state.busy == 0) state = 3;
 			break;
 		case 3:		// print a block entry
-			tag = (console_state.block[idx].fp != 0) ? 'C' : '>';			// Start by determining the tag
-			sprintf (console_state.output, "\r\n %c %s", tag, console_state.block[idx++].label);
-			console_fp = console_state_output;	// transition to output state
+			tag = (shell_state.block[idx].fp != 0) ? 'C' : '>';			// Start by determining the tag
+			sprintf (shell_state.output, "\r\n %c %s", tag, shell_state.block[idx++].label);
+			shell_fp = shell_state_output;	// transition to output state
 			// The local state transition depends on the value of idx
-			if (idx > (int) console_state.block[0].fp)	// check against number of commands in the block
+			if (idx > (int) shell_state.block[0].fp)	// check against number of commands in the block
 				state = 4;	// End of block reached, command will complete on next call
 			else
 				state = 2;	// Loop to wait for DMA completion and transfer next entry
@@ -94,7 +94,7 @@ void command_native_list ()
 }
 
 
-t_console_block_entry console_block[] =
+t_shell_block_entry shell_block[] =
 {
 		{ "", BLOCK_LEN 2, 0 },			// Title shouldn't be necessary, removing it to save space.
 		{ "cd..", command_native_cddoubledot, 0},		// navigate towards the root
@@ -102,7 +102,7 @@ t_console_block_entry console_block[] =
 };
 
 // Also declaring an empty system block to allow for compilation and operation even if the user doesn't declare their own
-t_console_block_entry system_block[] =
+t_shell_block_entry system_block[] =
 {
 		{ "", BLOCK_LEN 0, 0 }			// Zero length : the parser will skip this block
 };

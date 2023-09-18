@@ -35,6 +35,18 @@ extern t_shell_block_entry root_block[];		// Must be declared by the application
 // Function pointer for the current state of the shell :
 void (*shell_fp)() = shell_state_init;
 
+// ======= Logging =======
+
+// Simple logging function. Should only be used OUTSIDE of Console command functions.
+// This is not robust, it is meant only as a cheap debugging tool during development, until I code something stronger.
+void shell_log (char *message)
+{
+	// Copy the message to the egress buffer, prefix with a carriage return
+	sprintf (shell_state.output, "\r\n%s", message);
+	// Use the target's console output function to send it out
+	shell_out (shell_state.output, strlen (shell_state.output));
+}
+
 // ======= Main state machine state functions =======
 
 // Initial state - Runs once; performs initialization
@@ -250,7 +262,7 @@ void shell_in (char c)
 // This function must be overridden by the application to match the target platform
 __attribute__((weak)) void shell_out (char *buff, int length)
 {
-	// This function must transmit strlen(c) bytes starting from c.
+	// This function must transmit strlen(buff) bytes starting from buff*.
 }
 
 // This function must be overridden by the application to match the target platform

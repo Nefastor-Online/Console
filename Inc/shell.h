@@ -84,4 +84,8 @@ void shell_out (char *buff, int length);		// Send buffer out the UART
 void shell_get_byte (char *c);		// Called by the shell to read a byte from the UART
 void shell_state_error ();			// The shell transitions to this state in case of unrecoverable error.
 
+// Logging function
+void shell_log (char *message);
+#define LOG(a) shell_log((a))		// In case you prefer your logging function "high-visibility"
+
 #endif /* INC_SHELL_H_ */

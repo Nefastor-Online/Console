@@ -102,8 +102,19 @@ t_shell_block_entry shell_block[] =
 };
 
 // Also declaring an empty system block to allow for compilation and operation even if the user doesn't declare their own
+#ifndef SHELL_SYSTEM_BLOCK
 t_shell_block_entry system_block[] =
 {
 		{ "", BLOCK_LEN 0, 0 }			// Zero length : the parser will skip this block
 };
+#endif
+
+// Same for the application-specific command block
+#ifndef SHELL_ROOT_BLOCK
+t_shell_block_entry root_block[] =
+{
+		{"STM32", BLOCK_LEN 0, 0}	// Title block. Root, so no parent block. No function. Function pointer replaced by command count in the block
+};
+#endif
+
 

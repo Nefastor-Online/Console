@@ -101,41 +101,57 @@ void shell_state_output ()
 	}
 }
 
-// WIP !!!
-// PROBLEM : I have no way to reset its state. It should transition to a safe function (idle)
 void shell_state_input ()
 {
-	// Currently, input data is processed by UART callback...
-	shell_get_byte (&shell_state.c);	// ... But I need to arm the mechanism first.
-	shell_fp = shell_state_idle;
+	shell_get_byte (&shell_state.c);	// Ask the terminal interface (UART ?) for the next keystroke from the user...
+	shell_fp = shell_state_idle;		// ... and go idle until it arrives.
 }
 
 void shell_state_idle ()
 {
 	// Do nothing. Used when waiting for the state machine state to be transitioned from an interrupt handler or callback
 	// DANGER : the shell will get stuck in that state if a key is pressed outside of the input state !
-
-	// Quick test : maybe I can rearm the read without danger :
-	shell_get_byte (&shell_state.c); // THIS SOLVED THE BUG !!! But how clean is it ? Is it expensive ?
+	// SOLUTION : re-start the UART read. TO DO : find out how expensive this is.
+	shell_get_byte (&shell_state.c);
+	// Note : this solution is actually required when using a serial interface that doesn't have an interrupt-based API
+	// (specifically : my own USB Virtual COM Port library)
 }
 
+// TO DO : I've improved the parser to also decode partial commands (i.e. "com" will match "command"),
+// but this doesn't work when the command line contains arguments. Fix that if it can be done inexpensively.
+// I think the problem is in the command functions using sscanf to parse the command line (they would be expecting the full command word)
 void shell_state_parser ()
 {
+	// If the command line is empty, return immediately to wait for a new one
+	if (strlen (shell_state.input) == 0)
+	{
+		shell_fp = shell_state_output;
+		return;
+	}
+
 	// Getting here means shell_state.command_fp must be zero, but for now let's just make sure
 	shell_state.command_fp = 0;	// No command is currently executing (or we wouldn't be here)
+
+	// Compute the length of the first word of the command line
+	int clen = strlen (shell_state.input);	// Start from the command line's length
+	int i;
+	for (i = 0; i < clen; i++)
+		if (shell_state.input[i] == 32)
+			clen = i;		// Will cause the loop to exit after the first match. If there's no match, clen remains unchanged.
 
 	// Look for a matching command within the current block :
 	int len = (int) shell_state.block[0].fp;	// The function pointer in a block's title entry holds number of commands in the block
 	// Note : a block with no command (len == 0) is not supported
 	for (int k = 1; k <= len; k++)	// Loop through the block. Skip the title entry
 	{
-		// Determine the index of the first space in the command label
-		int j = 0;
-		while (shell_state.block[k].label[j] != 32) j++; // Note : the index of the first space is also the length of the first word.
+		// Determine the index of the first space in the command label => can be optimized out
+		// int j = 0;
+		// while (shell_state.block[k].label[j] != 32) j++; // Note : the index of the first space is also the length of the first word.
 
 		// Compare the command line's start to the command label in the block entry
 		// if (strncmp(shell_state.input, shell_state.block[k].label, strlen(shell_state.block[k].label)) == 0)
-		if (strncmp(shell_state.input, shell_state.block[k].label, j) == 0)
+		// if (strncmp(shell_state.input, shell_state.block[k].label, j) == 0)
+		if (strncmp(shell_state.input, shell_state.block[k].label, clen) == 0)	// Use clen instead of j
 		{
 			// Found a match ! Determine if it's a command or a sub-block
 			if (shell_state.block[k].fp != 0)	// then it's a command !
